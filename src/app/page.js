@@ -1,95 +1,96 @@
-import Image from "next/image";
+"use client";
+import {
+  Box,
+  Button,
+  Container,
+  Heading,
+  Text,
+  VStack,
+  HStack,
+  useColorModeValue,
+} from "@chakra-ui/react";
+import { motion } from "framer-motion";
+import { FaRocket, FaComments, FaUserFriends } from "react-icons/fa";
+import Link from "next/link";
 import styles from "./page.module.css";
 
-export default function Home() {
+const MotionBox = motion(Box);
+
+const Feature = ({ icon, title, text }) => {
   return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>src/app/page.js</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <VStack>
+      <Box fontSize="3xl" color="blue.500">
+        {icon}
+      </Box>
+      <Text fontWeight="bold">{title}</Text>
+      <Text textAlign="center">{text}</Text>
+    </VStack>
+  );
+};
+
+export default function Home() {
+  const bgColor = useColorModeValue("white", "gray.800");
+
+  return (
+    <Box className={styles.gradientBg}>
+      <Container maxW="container.xl" pt={20}>
+        <VStack spacing={10} align="center">
+          <MotionBox
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
           >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
+            <Heading as="h1" size="2xl" textAlign="center" color="white">
+              Welcome to RapidTalk
+            </Heading>
+            <Text fontSize="xl" textAlign="center" mt={4} color="white">
+              Real-time chat made simple and efficient.
+            </Text>
+          </MotionBox>
 
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
+          <HStack spacing={8} wrap="wrap" justify="center">
+            <Button as={Link} href="/signup" size="lg" colorScheme="blue">
+              Get Started
+            </Button>
+            <Button
+              as={Link}
+              href="/login"
+              size="lg"
+              variant="outline"
+              color="white"
+              _hover={{ bg: "whiteAlpha.200" }}
+            >
+              Log In
+            </Button>
+          </HStack>
 
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore starter templates for Next.js.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+          <MotionBox
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+          >
+            <Box bg={bgColor} p={10} borderRadius="lg" boxShadow="xl">
+              <HStack spacing={10} wrap="wrap" justify="center">
+                <Feature
+                  icon={<FaRocket />}
+                  title="Lightning Fast"
+                  text="Experience real-time messaging with minimal latency."
+                />
+                <Feature
+                  icon={<FaComments />}
+                  title="Rich Conversations"
+                  text="Share text, images, and files seamlessly."
+                />
+                <Feature
+                  icon={<FaUserFriends />}
+                  title="Team Collaboration"
+                  text="Create group chats and collaborate effectively."
+                />
+              </HStack>
+            </Box>
+          </MotionBox>
+        </VStack>
+      </Container>
+    </Box>
   );
 }
