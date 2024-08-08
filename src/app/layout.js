@@ -3,7 +3,7 @@
 import { ChakraProvider, Box } from "@chakra-ui/react";
 import { motion } from "framer-motion";
 import "./globals.css";
-import { SocketProvider } from './socketProvider';
+import { SocketProvider } from '../../socketProvider';
 
 const pageVariants = {
   initial: { opacity: 0, y: 20 },

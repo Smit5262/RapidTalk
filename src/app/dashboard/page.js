@@ -1,36 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState , useEffect } from "react";
 import { Box, Flex, IconButton, useDisclosure } from "@chakra-ui/react";
 import { HamburgerIcon, CloseIcon } from "@chakra-ui/icons";
 import Sidebar from "../components/Sidebar";
 import ChatWindow from "../components/ChatWindow";
-import io from 'socket.io-client'
+import Cookies from "js-cookie";
 
 let socket;
 
 export default function Dashboard() {
   const { isOpen, onToggle } = useDisclosure();
   const [selectedUser, setSelectedUser] = useState(null);
-
-  useEffect(() => {
-    socketInitializer()
-  }, [])
-
-  const socketInitializer = async () => {
-    await fetch('/api/socket')
-    socket = io()
-
-    socket.on('connect', () => {
-      console.log('connected')
-    })
-  }
+  
 
   const handleSelectUser = (user) => {
     setSelectedUser(user);
     if (isOpen) onToggle();
   };
-
   return (
     <Flex height="100vh">
       <Box
@@ -45,6 +32,7 @@ export default function Dashboard() {
       >
         <Sidebar onSelectUser={handleSelectUser} />
       </Box>
+      
       <Box flex={1} position="relative">
         <IconButton
           icon={isOpen ? <CloseIcon /> : <HamburgerIcon />}

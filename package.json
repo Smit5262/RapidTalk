@@ -3,10 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node D:\\rapidtalk\\src\\app\\server.js",
+    "dev": "next dev",
     "build": "next build",
-    "start": "NODE_ENV=production node server.js",
-    "lint": "next lint"
+    "start": "next start",
+    "lint": "next lint",
+    "socket": "node socketServer.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run socket\""
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.1.1",
@@ -15,8 +17,12 @@
     "@emotion/styled": "^11.13.0",
     "@reduxjs/toolkit": "^2.2.7",
     "axios": "^1.7.3",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.5",
     "framer-motion": "^11.3.21",
     "js-cookie": "^3.0.5",
+    "jsonwebtoken": "^9.0.2",
+    "jwt-decode": "^4.0.0",
     "mongodb": "^6.8.0",
     "mongoose": "^8.5.2",
     "next": "14.2.5",
@@ -26,10 +32,12 @@
     "react-dropzone": "^14.2.3",
     "react-icons": "^5.2.1",
     "react-redux": "^9.1.2",
+    "react-toastify": "^10.0.5",
     "socket.io": "^4.7.5",
     "socket.io-client": "^4.7.5"
   },
   "devDependencies": {
+    "concurrently": "^8.2.2",
     "eslint": "^8",
     "eslint-config-next": "14.2.5"
   }

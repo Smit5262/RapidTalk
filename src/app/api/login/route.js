@@ -1,56 +1,48 @@
 import { connectToDatabase } from "../mongodb";
-import { NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
+import bcrypt from 'bcrypt';
+import { generateToken } from '../../utils/auth';
 
-export async function GET(request) {
+export async function POST(request) {
   try {
     const { users } = await connectToDatabase();
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get("email");
-    const password = searchParams.get("password");
-    const userId = searchParams.get("userId");
+    const { email, password } = await request.json();
 
-    if (email && password) {
-      if (!email || !password) {
-        return NextResponse.json(
-          { error: "Email and password are required" },
-          { status: 400 }
-        );
-      }
-
-      const user = await users.findOne({ email });
-
-      if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
-      }
-
-      if (user.password !== password) {
-        return NextResponse.json(
-          { error: "Invalid password" },
-          { status: 401 }
-        );
-      }
-
-      if (!user.cart) {
-        await users.updateOne({ _id: user._id }, { $set: { cart: [] } });
-      }
-
-      return NextResponse.json({ userId: user._id.toString(), ok: true });
+    if (!email || !password) {
+      return new Response(
+        JSON.stringify({ error: "Email and password are required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    if (userId) {
-      const userCart = await users
-        .find({ userId: new ObjectId(userId) })
-        .toArray();
-      return NextResponse.json(userCart);
+    const user = await users.findOne({ email });
+
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: "User not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return new Response(
+        JSON.stringify({ error: "Invalid password" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const token = generateToken(user);
+
+    return new Response(
+      JSON.stringify({ token, ok: true }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
   } catch (error) {
-    console.error("Error in GET route:", error);
-    return NextResponse.json(
-      { error: "Failed to process request. Please try again." },
-      { status: 500 }
+    console.error("Error in POST route:", error);
+    return new Response(
+      JSON.stringify({ error: "Failed to process request. Please try again." }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 }

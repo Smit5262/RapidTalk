@@ -31,11 +31,11 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.get(
-        `/api/login?email=${email}&password=${password}`
-      );
+      const response = await axios.post("/api/login", { email, password });
       if (response.data.ok) {
-        Cookies.set("userId", response.data.userId, { expires: rememberMe ? 7 : undefined });
+        Cookies.set("token", response.data.token, {
+          expires: rememberMe ? 7 : undefined,
+        });
         router.push("/dashboard");
       } else {
         setError(response.data.error || "Invalid email or password");

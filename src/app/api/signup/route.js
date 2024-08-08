@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "../mongodb";
+import bcrypt from 'bcrypt';
+import { generateToken } from '../../utils/auth';
 
 export async function POST(request) {
   try {
@@ -12,8 +14,11 @@ export async function POST(request) {
       return NextResponse.json({ error: "Email already exists" }, { status: 400 });
     }
 
-    const userData = await users.insertOne({ email, password, username, info, phoneNumber });
-    return NextResponse.json({ userData, ok: true });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const result = await users.insertOne({ email, password: hashedPassword, username, info, phoneNumber });
+    
+    const token = generateToken(result.insertedId); 
+    return NextResponse.json({ token, ok: true });
   } catch (error) {
     console.error("Error in POST route:", error);
     return NextResponse.json({ error: "An error occurred while processing your request" }, { status: 500 });

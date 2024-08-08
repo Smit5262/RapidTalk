@@ -10,12 +10,14 @@ import {
   Avatar,
   Flex,
   useColorModeValue,
+  useToast,
 } from "@chakra-ui/react";
 import { FaPaperPlane } from "react-icons/fa";
 import { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import axiosInstance from "../axiosInstace";
 import Cookies from "js-cookie";
-import { useSocket } from "../socketProvider";
+import { useSocket } from "../../../socketProvider";
+import * as jwtDecode from "jwt-decode";
 
 const Message = ({ text, isUser, avatar }) => {
   const bgColor = useColorModeValue(
@@ -36,9 +38,11 @@ const Message = ({ text, isUser, avatar }) => {
         color={textColor}
         p={3}
         borderRadius="lg"
+        alignSelf={isUser ? "flex-end" : "flex-start"}
       >
         <Text>{text}</Text>
       </Box>
+      {isUser && <Avatar size="sm" src={avatar} ml={2} />}
     </Flex>
   );
 };
@@ -47,15 +51,36 @@ export default function ChatWindow({ selectedUser }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const bgColor = useColorModeValue("white", "gray.800");
-  const userId = Cookies.get("userId");
   const messagesEndRef = useRef(null);
   const socket = useSocket();
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const toast = useToast();
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
-    if (selectedUser && userId) {
+    const token = Cookies.get("token");
+    if (token) {
+      try {
+        const decodedToken = jwtDecode.jwtDecode(token);
+        setCurrentUserId(decodedToken.id);
+      } catch (error) {
+        console.error("Error decoding token:", error);
+        toast({
+          title: "Authentication Error",
+          description: "Please log in again.",
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedUser && currentUserId) {
       fetchMessages();
     }
-  }, [selectedUser, userId]);
+  }, [selectedUser, currentUserId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -63,24 +88,6 @@ export default function ChatWindow({ selectedUser }) {
 
   useEffect(() => {
     if (socket) {
-      const handleReceiveMessage = (msg) => {
-        if (
-          msg.senderId === selectedUser?._id ||
-          msg.receiverId === selectedUser?._id
-        ) {
-          setMessages((prevMessages) => {
-            // Check if the message already exists
-            const isDuplicate = prevMessages.some(
-              (message) => message._id === msg._id
-            );
-            if (!isDuplicate) {
-              return [...prevMessages, msg];
-            }
-            return prevMessages;
-          });
-        }
-      };
-
       socket.on("receive-message", handleReceiveMessage);
 
       return () => {
@@ -89,29 +96,54 @@ export default function ChatWindow({ selectedUser }) {
     }
   }, [socket, selectedUser]);
 
+  const handleReceiveMessage = (msg) => {
+    if (
+      (msg.senderId === selectedUser?._id &&
+        msg.receiverId === currentUserId) ||
+      (msg.senderId === currentUserId && msg.receiverId === selectedUser?._id)
+    ) {
+      setMessages((prevMessages) => {
+        const isDuplicate = prevMessages.some(
+          (message) => message._id === msg._id
+        );
+        if (!isDuplicate) {
+          return [...prevMessages, msg];
+        }
+        return prevMessages;
+      });
+    }
+  };
+
   const fetchMessages = async () => {
     try {
-      const response = await axios.get(
-        `/api/messages?senderId=${userId}&receiverId=${selectedUser._id}`
+      const response = await axiosInstance.get(
+        `/messages?receiverId=${selectedUser._id}`
       );
       setMessages(response.data);
     } catch (error) {
       console.error("Failed to fetch messages:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch messages. Please try again.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
     }
   };
 
   const sendMessage = async () => {
-    if (newMessage.trim() === "") return;
+    if (newMessage.trim() === "" || isSending) return;
+
+    setIsSending(true);
 
     const messageData = {
-      senderId: userId,
       receiverId: selectedUser._id,
       content: newMessage,
-      timestamp: new Date(),
     };
 
     try {
-      const response = await axios.post(`/api/messages`, messageData);
+      const response = await axiosInstance.post(`/messages`, messageData);
       setMessages((prevMessages) => [...prevMessages, response.data]);
       setNewMessage("");
       if (socket) {
@@ -119,6 +151,15 @@ export default function ChatWindow({ selectedUser }) {
       }
     } catch (error) {
       console.error("Failed to send message:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -153,13 +194,17 @@ export default function ChatWindow({ selectedUser }) {
           </Text>
         </Flex>
       </Box>
-      <VStack flex={1} overflowY="auto" p={4} spacing={4}>
+      <VStack flex={1} overflowY="auto" p={4} spacing={4} alignItems="stretch">
         {messages.map((message, index) => (
           <Message
             key={index}
             text={message.content}
-            isUser={message.senderId === userId}
-            avatar={selectedUser.avatar || "/profilepic1.jpeg"}
+            isUser={message.senderId === currentUserId}
+            avatar={
+              message.senderId === currentUserId
+                ? "/profilepic1.jpeg"
+                : selectedUser.avatar || "/profilepic1.jpeg"
+            }
           />
         ))}
         <div ref={messagesEndRef} />
@@ -176,7 +221,11 @@ export default function ChatWindow({ selectedUser }) {
               }
             }}
           />
-          <Button colorScheme="blue" onClick={sendMessage}>
+          <Button
+            colorScheme="blue"
+            onClick={sendMessage}
+            isLoading={isSending}
+          >
             <FaPaperPlane />
           </Button>
         </HStack>
