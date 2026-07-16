@@ -1,0 +1,267 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Auth / Users
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  avatarUrl     String?
+  status        PresenceStatus @default(OFFLINE)
+  lastSeenAt    DateTime?
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions      Session[]
+  memberships   WorkspaceMember[]
+  messages      Message[]
+  reactions     Reaction[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  aiLogs        AiLog[]
+
+  @@index([email])
+}
+
+enum PresenceStatus {
+  ONLINE
+  AWAY
+  BUSY
+  OFFLINE
+}
+
+model Session {
+  id            String   @id @default(uuid())
+  userId        String
+  refreshToken  String   @unique
+  userAgent     String?
+  ipAddress     String?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  revokedAt     DateTime?
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Workspaces / Roles / Permissions
+// ─────────────────────────────────────────────────────────────
+
+model Workspace {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members       WorkspaceMember[]
+  channels      Channel[]
+  invites       WorkspaceInvite[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  aiLogs        AiLog[]
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+model WorkspaceMember {
+  id          String        @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole @default(MEMBER)
+  joinedAt    DateTime      @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  channelMemberships ChannelMember[]
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+model WorkspaceInvite {
+  id          String    @id @default(uuid())
+  workspaceId String
+  email       String?
+  token       String    @unique
+  role        WorkspaceRole @default(MEMBER)
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  acceptedAt  DateTime?
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Channels / Messaging
+// ─────────────────────────────────────────────────────────────
+
+enum ChannelType {
+  PUBLIC
+  PRIVATE
+  DIRECT_MESSAGE
+  GROUP_DM
+}
+
+model Channel {
+  id          String      @id @default(uuid())
+  workspaceId String
+  name        String
+  type        ChannelType @default(PUBLIC)
+  topic       String?
+  isArchived  Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members     ChannelMember[]
+  messages    Message[]
+
+  @@index([workspaceId])
+}
+
+model ChannelMember {
+  id                String   @id @default(uuid())
+  channelId         String
+  workspaceMemberId String
+  isPinned          Boolean  @default(false)
+  isFavorite        Boolean  @default(false)
+  lastReadAt        DateTime?
+  joinedAt          DateTime @default(now())
+
+  channel           Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, workspaceMemberId])
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  channelId   String
+  authorId    String
+  parentId    String?  // thread reply
+  content     String
+  isEdited    Boolean  @default(false)
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  channel     Channel      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author      User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent      Message?     @relation("ThreadReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies     Message[]    @relation("ThreadReplies")
+
+  attachments Attachment[]
+  reactions   Reaction[]
+
+  @@index([channelId, createdAt])
+  @@index([parentId])
+}
+
+model Attachment {
+  id         String   @id @default(uuid())
+  messageId  String
+  fileUrl    String
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  createdAt  DateTime @default(now())
+
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+model Reaction {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Notifications / Logging
+// ─────────────────────────────────────────────────────────────
+
+enum NotificationType {
+  MENTION
+  DIRECT_MESSAGE
+  WORKSPACE_INVITE
+  CHANNEL_ACTIVITY
+  AI_DIGEST
+  SYSTEM
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String
+  workspaceId String?
+  type        NotificationType
+  payload     Json
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  workspaceId String?
+  userId      String?
+  action      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+}
+
+model AiLog {
+  id           String   @id @default(uuid())
+  workspaceId  String?
+  userId       String?
+  feature      String   // e.g. "summarize", "translate", "rewrite", "task_extract"
+  provider     String   // e.g. "groq"
+  model        String
+  promptTokens Int?
+  outputTokens Int?
+  createdAt    DateTime @default(now())
+
+  workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  user         User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+}
