@@ -4,6 +4,8 @@ import RegisterPage from "@/features/auth/RegisterPage";
 import ProtectedRoute from "@/features/auth/ProtectedRoute";
 import AppLayout from "@/layouts/AppLayout";
 import HomePage from "@/pages/HomePage";
+import WorkspacePage from "@/pages/WorkspacePage";
+import ChannelPage from "@/pages/ChannelPage";
 
 export default function App() {
   return (
@@ -15,6 +17,8 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route path="/" element={<HomePage />} />
+            <Route path="/w/:workspaceId" element={<WorkspacePage />} />
+            <Route path="/w/:workspaceId/c/:channelId" element={<ChannelPage />} />
           </Route>
         </Route>
 
