@@ -10,3 +10,4 @@ coverage/
 .vscode/
 backend/prisma/migrations/**/migration.sql.bak
 .next/
+*.tsbuildinfo

@@ -1,11 +1,15 @@
 import { randomBytes } from "crypto";
 import { WorkspaceRole } from "@prisma/client";
 import { AppError } from "../utils/AppError";
+import { auditLog } from "../utils/audit";
 import { randomSuffix, slugify } from "../utils/slug";
 import {
   workspaceInviteRepository,
   workspaceRepository,
 } from "../repositories/workspace.repository";
+import { userRepository } from "../repositories/auth.repository";
+import { notificationService } from "./notification.service";
+import { emitToUser } from "../socket/emitter";
 import { CreateInviteInput, CreateWorkspaceInput, UpdateWorkspaceInput } from "../validators/workspace.validator";
 
 export const workspaceService = {
@@ -19,7 +23,9 @@ export const workspaceService = {
       slug = `${baseSlug}-${randomSuffix()}`;
     }
 
-    return workspaceRepository.create({ name: input.name, slug, ownerId: userId });
+    const workspace = await workspaceRepository.create({ name: input.name, slug, ownerId: userId });
+    auditLog({ workspaceId: workspace.id, userId, action: "workspace_created", metadata: { name: input.name } });
+    return workspace;
   },
 
   listMine(userId: string) {
@@ -53,20 +59,45 @@ export const workspaceService = {
       throw new AppError("Only the workspace owner can manage ownership", 403);
     }
 
-    return workspaceRepository.updateMemberRole(memberId, role);
+    const updated = await workspaceRepository.updateMemberRole(memberId, role);
+    auditLog({ workspaceId, action: "member_role_changed", metadata: { memberId, newRole: role } });
+    return updated;
   },
 
-  async createInvite(workspaceId: string, input: CreateInviteInput) {
+  async createInvite(workspaceId: string, input: CreateInviteInput, invitedByName: string) {
     const token = randomBytes(24).toString("hex");
     const expiresAt = new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000);
 
-    return workspaceInviteRepository.create({
+    const invite = await workspaceInviteRepository.create({
       workspaceId,
       token,
       email: input.email,
       role: input.role,
       expiresAt,
     });
+
+    if (input.email) {
+      const targetUser = await userRepository.findByEmail(input.email);
+      if (targetUser) {
+        const workspace = await workspaceRepository.findById(workspaceId);
+        const notification = await notificationService.create({
+          userId: targetUser.id,
+          workspaceId,
+          type: "WORKSPACE_INVITE",
+          payload: {
+            inviteToken: token,
+            workspaceId,
+            workspaceName: workspace?.name ?? "",
+            invitedByName,
+          },
+        });
+
+        emitToUser(targetUser.id, "notification:new", notification);
+      }
+    }
+
+    auditLog({ workspaceId, action: "invite_created", metadata: { email: input.email, role: input.role } });
+    return invite;
   },
 
   async acceptInvite(token: string, userId: string) {
@@ -83,6 +114,7 @@ export const workspaceService = {
 
     const member = await workspaceRepository.addMember(invite.workspaceId, userId, invite.role);
     await workspaceInviteRepository.markAccepted(invite.id);
+    auditLog({ workspaceId: invite.workspaceId, userId, action: "invite_accepted", metadata: { role: invite.role } });
 
     return member;
   },

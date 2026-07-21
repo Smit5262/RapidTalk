@@ -19,3 +19,16 @@ export const authLimiter = rateLimit({
     errors: null,
   },
 });
+
+export const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many AI requests, please try again later.",
+    data: null,
+    errors: null,
+  },
+});

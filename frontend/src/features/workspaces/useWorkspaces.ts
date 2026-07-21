@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/services/api";
+import { useAuthStore } from "@/store/auth.store";
 import type { Workspace, WorkspaceMember, WorkspaceRole } from "@/types/workspace.types";
 
 export function useWorkspaces() {
@@ -61,8 +62,18 @@ export function useAcceptInvite() {
   return useMutation({
     mutationFn: async (token: string) => {
       const { data } = await api.post(`/workspaces/invites/${token}/accept`);
-      return data.data;
+      return data.data as { workspaceId: string };
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workspaces"] }),
   });
+}
+
+export function useMyWorkspaceRole(workspaceId: string | null): WorkspaceRole | undefined {
+  const user = useAuthStore((s) => s.user);
+  const { data: members } = useWorkspaceMembers(workspaceId);
+
+  if (!user || !members) return undefined;
+
+  const me = members.find((m) => m.userId === user.id);
+  return me?.role;
 }

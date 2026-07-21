@@ -1,7 +1,10 @@
 import { useState } from "react";
+import { Hash, Lock } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
 import { useCreateChannel } from "./useChannels";
 import type { ChannelType } from "@/types/workspace.types";
+import { cn } from "@/shared/lib/cn";
 
 interface Props {
   workspaceId: string;
@@ -25,57 +28,78 @@ export function CreateChannelModal({ workspaceId, open, onClose }: Props) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Create a channel">
+    <Modal open={open} onClose={onClose} title="Create a channel" description="Channels are where your team communicates.">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium" htmlFor="channel-name">
             Channel name
           </label>
-          <input
-            id="channel-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="general"
-            autoFocus
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <Hash size={16} />
+            </span>
+            <input
+              id="channel-name"
+              value={name}
+              onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, "-"))}
+              placeholder="general"
+              autoFocus
+              className="flex h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm shadow-xs transition-all duration-150 placeholder:text-muted-foreground hover:border-muted-foreground/30 focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/20"
+            />
+          </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-medium">Visibility</span>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => setType("PUBLIC")}
-              className={`flex-1 rounded-md border px-3 py-2 text-sm ${
-                type === "PUBLIC" ? "border-primary bg-primary/10 text-primary" : "border-border"
-              }`}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-all",
+                type === "PUBLIC"
+                  ? "border-primary bg-primary/10 text-primary shadow-xs"
+                  : "border-input hover:border-muted-foreground/30 hover:bg-accent"
+              )}
             >
-              Public
+              <Hash size={16} />
+              <span>Public</span>
             </button>
             <button
               type="button"
               onClick={() => setType("PRIVATE")}
-              className={`flex-1 rounded-md border px-3 py-2 text-sm ${
-                type === "PRIVATE" ? "border-primary bg-primary/10 text-primary" : "border-border"
-              }`}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-all",
+                type === "PRIVATE"
+                  ? "border-primary bg-primary/10 text-primary shadow-xs"
+                  : "border-input hover:border-muted-foreground/30 hover:bg-accent"
+              )}
             >
-              Private
+              <Lock size={16} />
+              <span>Private</span>
             </button>
           </div>
         </div>
 
         {createChannel.isError && (
-          <p className="text-sm text-red-500">Could not create channel. Try again.</p>
+          <div className="rounded-lg bg-destructive/10 px-3 py-2.5">
+            <p className="text-sm text-destructive">
+              Could not create channel. Try again.
+            </p>
+          </div>
         )}
 
-        <button
-          type="submit"
-          disabled={createChannel.isPending || !name.trim()}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-        >
-          {createChannel.isPending ? "Creating…" : "Create channel"}
-        </button>
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={createChannel.isPending || !name.trim()}
+          >
+            {createChannel.isPending ? "Creating..." : "Create channel"}
+          </Button>
+        </div>
       </form>
     </Modal>
   );

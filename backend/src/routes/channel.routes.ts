@@ -1,8 +1,11 @@
 import { Router } from "express";
 import { channelController } from "../controllers/channel.controller";
-import { requireWorkspaceRole } from "../middlewares/rbac.middleware";
+import { requireChannelAccess, requireWorkspaceRole } from "../middlewares/rbac.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { CHANNEL_ADMIN_ROLES } from "../services/channel.service";
+import messageRoutes from "./message.routes";
+import uploadRoutes from "./upload.routes";
+import aiRoutes from "./ai.routes";
 import {
   channelParamsSchema,
   createChannelSchema,
@@ -33,5 +36,9 @@ router.post("/:channelId/join", validate(channelParamsSchema), channelController
 router.post("/:channelId/leave", validate(channelParamsSchema), channelController.leave);
 router.patch("/:channelId/pin", validate(channelParamsSchema), channelController.togglePin);
 router.patch("/:channelId/favorite", validate(channelParamsSchema), channelController.toggleFavorite);
+
+router.use("/:channelId/messages", requireChannelAccess, messageRoutes);
+router.use("/:channelId/uploads", requireChannelAccess, uploadRoutes);
+router.use("/:channelId/ai", requireChannelAccess, aiRoutes);
 
 export default router;

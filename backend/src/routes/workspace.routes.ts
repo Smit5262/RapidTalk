@@ -5,6 +5,7 @@ import { requireAuth } from "../middlewares/auth.middleware";
 import { requireWorkspaceMember, requireWorkspaceRole } from "../middlewares/rbac.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import channelRoutes from "./channel.routes";
+import dashboardRoutes from "./dashboard.routes";
 import {
   acceptInviteSchema,
   createInviteSchema,
@@ -51,5 +52,6 @@ router.post(
 );
 
 router.use("/:workspaceId/channels", requireWorkspaceMember, channelRoutes);
+router.use("/:workspaceId/dashboard", requireWorkspaceMember, dashboardRoutes);
 
 export default router;

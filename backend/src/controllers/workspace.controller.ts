@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { sendSuccess } from "../utils/apiResponse";
 import { workspaceService } from "../services/workspace.service";
+import { userRepository } from "../repositories/auth.repository";
 
 export const workspaceController = {
   create: asyncHandler(async (req: Request, res: Response) => {
@@ -40,7 +41,8 @@ export const workspaceController = {
   }),
 
   createInvite: asyncHandler(async (req: Request, res: Response) => {
-    const invite = await workspaceService.createInvite(req.params.workspaceId, req.body);
+    const user = await userRepository.findById(req.user!.sub);
+    const invite = await workspaceService.createInvite(req.params.workspaceId, req.body, user?.name ?? "Someone");
     return sendSuccess(res, invite, "Invite created", 201);
   }),
 

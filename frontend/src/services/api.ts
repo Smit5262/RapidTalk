@@ -32,9 +32,9 @@ api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     const original = error.config;
-    if (error.response?.status === 401 && original && !(original as any)._retry) {
-      (original as any)._retry = true;
+    const isRefreshCall = original?.url?.includes("/auth/refresh");
 
+    if (error.response?.status === 401 && original && !isRefreshCall && !(original as any)._retry) {
       refreshPromise ??= refreshAccessToken().finally(() => {
         refreshPromise = null;
       });

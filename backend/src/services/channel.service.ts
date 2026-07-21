@@ -1,5 +1,6 @@
 import { ChannelType, WorkspaceRole } from "@prisma/client";
 import { AppError } from "../utils/AppError";
+import { auditLog } from "../utils/audit";
 import { channelRepository } from "../repositories/channel.repository";
 import { CreateChannelInput, UpdateChannelInput } from "../validators/channel.validator";
 
@@ -47,6 +48,7 @@ export const channelService = {
     if (!channel) {
       throw new AppError("Channel not found", 404);
     }
+    auditLog({ workspaceId: channel.workspaceId, action: "channel_archived", metadata: { channelName: channel.name } });
     return channelRepository.archive(channelId);
   },
 

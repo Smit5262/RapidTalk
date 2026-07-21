@@ -1,0 +1,390 @@
+openapi: 3.0.3
+info:
+  title: RapidTalk API
+  version: 0.1.0
+  description: Slack-style real-time collaboration platform API
+
+servers:
+  - url: http://localhost:4000/api
+    description: Local development
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          oneOf:
+            - type: object
+            - type: array
+            - type: string
+            - nullable: true
+        errors:
+          nullable: true
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        data:
+          nullable: true
+        errors:
+          nullable: true
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        avatarUrl: { type: string, nullable: true }
+
+    Workspace:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        avatarUrl: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Channel:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        workspaceId: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string, enum: [PUBLIC, PRIVATE, DIRECT_MESSAGE, GROUP_DM] }
+        topic: { type: string, nullable: true }
+        isArchived: { type: boolean }
+
+    Message:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        channelId: { type: string, format: uuid }
+        authorId: { type: string, format: uuid }
+        content: { type: string }
+        isEdited: { type: boolean }
+        isDeleted: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        author:
+          $ref: '#/components/schemas/User'
+        reactions:
+          type: array
+          items:
+            type: object
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              fileUrl: { type: string }
+              fileName: { type: string }
+              mimeType: { type: string }
+              sizeBytes: { type: integer }
+
+    Notification:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        workspaceId: { type: string, format: uuid, nullable: true }
+        type: { type: string, enum: [MENTION, DIRECT_MESSAGE, WORKSPACE_INVITE, CHANNEL_ACTIVITY, AI_DIGEST, SYSTEM] }
+        payload: { type: object }
+        isRead: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [System]
+      responses:
+        '200':
+          description: OK
+
+  /auth/register:
+    post:
+      summary: Register new account
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, name]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                name: { type: string, minLength: 2 }
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          accessToken: { type: string }
+                          user: { $ref: '#/components/schemas/User' }
+
+  /auth/login:
+    post:
+      summary: Login
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: Logged in
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      tags: [Auth]
+      responses:
+        '200':
+          description: Token refreshed
+
+  /auth/logout:
+    post:
+      summary: Logout
+      tags: [Auth]
+      responses:
+        '200':
+          description: Logged out
+
+  /workspaces:
+    get:
+      summary: List my workspaces
+      tags: [Workspaces]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Workspace list
+    post:
+      summary: Create workspace
+      tags: [Workspaces]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+      responses:
+        '201':
+          description: Workspace created
+
+  /workspaces/{workspaceId}:
+    get:
+      summary: Get workspace
+      tags: [Workspaces]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Workspace details
+
+  /workspaces/{workspaceId}/channels:
+    get:
+      summary: List channels
+      tags: [Channels]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Channel list
+
+  /workspaces/{workspaceId}/channels/{channelId}/messages:
+    get:
+      summary: List messages
+      tags: [Messages]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: channelId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: cursor
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Paginated messages
+    post:
+      summary: Send message
+      tags: [Messages]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: channelId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string, minLength: 1, maxLength: 10000 }
+                parentId: { type: string, format: uuid }
+                attachments:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      fileUrl: { type: string }
+                      fileName: { type: string }
+                      mimeType: { type: string }
+                      sizeBytes: { type: integer }
+      responses:
+        '201':
+          description: Message sent
+
+  /workspaces/{workspaceId}/channels/{channelId}/uploads/presign:
+    post:
+      summary: Get presigned upload URL
+      tags: [Uploads]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: channelId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fileName, mimeType, sizeBytes]
+              properties:
+                fileName: { type: string }
+                mimeType: { type: string }
+                sizeBytes: { type: integer, maximum: 26214400 }
+      responses:
+        '200':
+          description: Presigned URL
+
+  /notifications:
+    get:
+      summary: List notifications
+      tags: [Notifications]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Notification list
+  /notifications/read-all:
+    patch:
+      summary: Mark all notifications read
+      tags: [Notifications]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: All marked read
+
+  /workspaces/{workspaceId}/channels/{channelId}/ai/summarize:
+    post:
+      summary: Summarize channel
+      tags: [AI]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Summary
+
+  /workspaces/{workspaceId}/channels/{channelId}/ai/suggest-replies:
+    post:
+      summary: Suggest replies
+      tags: [AI]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Suggestions
+
+  /workspaces/{workspaceId}/dashboard/overview:
+    get:
+      summary: Dashboard overview
+      tags: [Dashboard]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Overview stats
+
+  /workspaces/{workspaceId}/dashboard/activity:
+    get:
+      summary: Dashboard activity
+      tags: [Dashboard]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Activity data
+
+  /workspaces/{workspaceId}/dashboard/recent:
+    get:
+      summary: Dashboard recent events
+      tags: [Dashboard]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Recent events
